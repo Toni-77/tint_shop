@@ -1,9 +1,9 @@
 "use client"
-
+import BookingDrawer from "@/components/BookingDrawer"
 import { useState } from "react"
 import Image from "next/image"
 import Link from "next/link"
-import { Phone, Play, Menu, X } from "lucide-react"
+import { Phone, Menu, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 const navLinks = [
@@ -18,7 +18,7 @@ export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   return (
-    <header className="w-full">
+    <header className="w-full relative z-50">
       {/* Desktop Navigation */}
       <nav className="hidden lg:flex items-center justify-between px-6 py-4">
         <Link href="/" className="flex items-center">
@@ -49,12 +49,11 @@ export function Header() {
             className="flex items-center gap-2 text-white hover:text-primary transition-colors"
           >
             <Phone className="h-4 w-4 text-primary" />
-            <span className="font-semibold">773-800-4411</span>
+            <span className="font-semibold text-sm text-white">773-800-4411</span>
           </a>
-          <Button className="bg-primary hover:bg-primary/90 text-white rounded-md">
-            <Play className="h-3 w-3 mr-1 fill-current" />
-            Book appointment
-          </Button>
+          
+          {/* Desktop Booking Drawer */}
+          <BookingDrawer />
         </div>
       </nav>
 
@@ -80,7 +79,7 @@ export function Header() {
           </button>
         </div>
 
-        <div className="px-4 py-2">
+        <div className="px-4 py-2 text-center">
           <a
             href="tel:773-800-4411"
             className="flex items-center justify-center gap-2 text-white"
@@ -94,17 +93,13 @@ export function Header() {
           <Button className="flex-1 bg-primary hover:bg-primary/90 text-white rounded-md text-sm">
             Get Quote
           </Button>
-          <Button
-            variant="outline"
-            className="flex-1 border-gray-600 bg-transparent text-white hover:bg-white/10 rounded-md text-sm"
-          >
-            <Play className="h-3 w-3 mr-1 fill-current" />
-            Book Appointment
-          </Button>
+          
+          {/* Mobile Booking Drawer */}
+          <BookingDrawer />
         </div>
 
         {mobileMenuOpen && (
-          <div className="px-4 py-4 border-t border-gray-800">
+          <div className="px-4 py-4 border-t border-gray-800 bg-black/95">
             {navLinks.map((link) => (
               <Link
                 key={link.label}
