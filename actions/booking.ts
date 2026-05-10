@@ -1,25 +1,23 @@
 'use server';
 
 import { Resend } from 'resend';
-import { db } from '@/utils/firebase'; 
-import { collection, addDoc, Timestamp } from "firebase/firestore";
+import { dbAdmin } from '@/utils/firebaseAdmin';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function sendManualBookingRequest(formData: any) {
   try {
-    // 1. Save to Firestore First
-    await addDoc(collection(db, "bookings"), {
+    // 1. Save to Firestore using Admin SDK (optimized for serverless)
+    await dbAdmin.collection("bookings").add({
       ...formData,
-      createdAt: Timestamp.now(),
-      // Creates a searchable Timestamp from the date and time strings
-      appointmentDate: Timestamp.fromDate(new Date(`${formData.date} ${formData.timeSlot}`))
+      createdAt: new Date(),
+      // Create a real Date object for the appointment
+      appointmentDate: new Date(`${formData.date} ${formData.timeSlot}`)
     });
 
     // 2. Trigger Email Notification via Resend
     const { error } = await resend.emails.send({
       from: 'Booking System <onboarding@resend.dev>', 
-      // Uses the MY_EMAIL variable you set in your Netlify dashboard
       to: [process.env.MY_EMAIL as string], 
       replyTo: formData.email, 
       subject: `New Booking: ${formData.firstName} ${formData.lastName}`,
@@ -50,7 +48,6 @@ export async function sendManualBookingRequest(formData: any) {
     return { success: true };
   } catch (error: any) {
     console.error("Booking Error:", error);
-    // Returns the specific error message to the frontend alert
     return { success: false, error: error.message || "Failed to process booking" };
   }
 }
