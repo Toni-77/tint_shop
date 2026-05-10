@@ -1,7 +1,6 @@
 'use client';
 import React, { useState, useMemo } from 'react';
-import { db } from '../utils/firebase'; // Ensure this path is correct
-import { collection, addDoc, Timestamp } from "firebase/firestore";
+import { sendManualBookingRequest } from "@/actions/booking";
 
 type ServiceType = 'Window Tint' | 'Ceramic Coating' | 'Paint Protection Film' | '';
 
@@ -14,11 +13,14 @@ export default function BookingForm() {
     date: '', timeSlot: ''
   });
 
+  // Business Logic for Saturday (9-3:30) and Weekdays (9-5)
   const availableSlots = useMemo(() => {
     if (!formData.date) return [];
+    
     const [year, month, day] = formData.date.split('-').map(Number);
     const date = new Date(year, month - 1, day);
     const dayOfWeek = date.getDay(); 
+    
     if (dayOfWeek === 0) return []; // Sunday Closed
 
     const slots = [];
@@ -40,34 +42,28 @@ export default function BookingForm() {
   const handleFinalSubmit = async () => {
     if (!formData.timeSlot) return alert("Please select a time.");
     
-    setLoading(true); // Button says "Sending..."
+    setLoading(true); // Button enters "Sending..."
 
     try {
-      // 1. Reference the "bookings" collection in Firestore
-      const bookingsRef = collection(db, "bookings");
-
-      // 2. Add the document
-      await addDoc(bookingsRef, {
-        ...formData,
-        createdAt: Timestamp.now(), // Track when they booked
-        // Optional: Save as a real date object for better filtering later
-        appointmentDate: Timestamp.fromDate(new Date(`${formData.date} ${formData.timeSlot}`))
-      });
-
-      alert("Request Sent! I will contact you shortly to confirm.");
-      window.location.reload(); // Reset form on success
+      // This single call handles both Firestore save and Resend email
+      const result = await sendManualBookingRequest(formData);
       
-    } catch (error) {
-      console.error("Firebase Error:", error);
-      alert("Submission failed. This is usually due to a network error or missing configuration.");
+      if (result.success) {
+        alert("Request Sent! I will contact you shortly to confirm.");
+        window.location.reload();
+      } else {
+        alert("Error: " + result.error);
+      }
+    } catch (err) {
+      console.error("Submission crash:", err);
+      alert("Something went wrong. Please check your connection.");
     } finally {
-      // THIS IS KEY: It unlocks the button even if it fails (prevents 502 loop)
-      setLoading(false);
+      setLoading(false); // ALWAYS unlocks the button
     }
   };
 
   return (
-    <div className="space-y-4 text-slate-900">
+    <div className="space-y-4 text-slate-900 bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
       {/* STEP 1: VEHICLE & SERVICE */}
       {step === 1 && (
         <div className="space-y-3 animate-in fade-in duration-300">
@@ -104,9 +100,9 @@ export default function BookingForm() {
           <div className="flex gap-2">
             <button onClick={() => setStep(1)} className="w-1/3 bg-gray-100 p-4 rounded-xl">Back</button>
             <button 
-              disabled={!formData.firstName || !formData.lastName || !formData.phone} 
+              disabled={!formData.firstName || !formData.phone} 
               onClick={() => setStep(3)} 
-              className="w-2/3 bg-blue-600 text-white p-4 rounded-xl font-bold disabled:bg-gray-300"
+              className="w-2/3 bg-blue-600 text-white p-4 rounded-xl font-bold"
             >
               Next: Pick Time
             </button>

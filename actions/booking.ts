@@ -1,57 +1,48 @@
 'use server';
-
-import { db } from "@/utils/firebase"; // Your Firebase init file
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { Resend } from 'resend';
+import { db } from '@/utils/firebase'; // Ensure this path points to your admin/server-side config
+import { collection, addDoc, Timestamp } from "firebase/firestore";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function sendManualBookingRequest(formData: any) {
   try {
-    // 1. SAVE TO FIREBASE FIRST
-    // This creates a permanent log of the request in your Firestore dashboard
-    await addDoc(collection(db, "bookingRequests"), {
-      firstName: formData.firstName,
-      lastName: formData.lastName,
-      email: formData.email,
-      phone: formData.phone,
-      vehicle: {
-        year: formData.year,
-        make: formData.make,
-        model: formData.model,
-      },
-      service: formData.service,
-      requestedTime: formData.date + " at " + formData.timeSlot,
-      status: "pending", // You can update this to "confirmed" later in the dashboard
-      createdAt: serverTimestamp(), // Uses Google's server clock for accuracy
+    // 1. Save to Firestore First
+    // Using Server-side write to ensure it happens before the email
+    await addDoc(collection(db, "bookings"), {
+      ...formData,
+      createdAt: Timestamp.now(),
+      appointmentDate: Timestamp.fromDate(new Date(`${formData.date} ${formData.timeSlot}`))
     });
 
-    // 2. SEND EMAIL NOTIFICATION
+    // 2. Trigger Email Notification via Resend
     const { error } = await resend.emails.send({
-      from: 'Supernova Tinting <onboarding@resend.dev>',
-      to: process.env.MY_EMAIL!,
-      subject: `New Request: ${formData.service} - ${formData.firstName}`,
+      from: 'Booking System <onboarding@resend.dev>', // Update if you have a verified domain
+      to: ['your-email@example.com'], // The email where you want alerts
+      replyTo: formData.email, // Allows direct reply to customer
+      subject: `New Booking: ${formData.firstName} ${formData.lastName}`,
       html: `
-        <div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 12px; max-width: 500px;">
+        <div style="font-family: sans-serif; border: 1px solid #ddd; padding: 20px; border-radius: 10px;">
           <h2 style="color: #2563eb;">New Appointment Request</h2>
           <p><strong>Customer:</strong> ${formData.firstName} ${formData.lastName}</p>
-          <p><strong>Phone:</strong> <a href="tel:${formData.phone}">${formData.phone}</a></p>
           <p><strong>Vehicle:</strong> ${formData.year} ${formData.make} ${formData.model}</p>
-          <p><strong>Time:</strong> ${formData.date} at ${formData.timeSlot}</p>
-          <div style="margin-top: 20px; text-align: center;">
-            <a href="mailto:${formData.email}?subject=Confirming your appointment" 
-               style="background-color: #2563eb; color: white; padding: 12px 20px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">
-              Reply via Email
-            </a>
+          <p><strong>Service:</strong> ${formData.service}</p>
+          <p><strong>Date:</strong> ${formData.date} at ${formData.timeSlot}</p>
+          
+          <div style="margin-top: 20px; padding: 15px; background: #f8fafc; border-radius: 8px;">
+            <p style="margin: 0;"><strong>Phone:</strong> <a href="tel:${formData.phone}">${formData.phone}</a> (Click to call)</p>
+            <p style="margin: 5px 0 0 0;"><strong>Email:</strong> <a href="mailto:${formData.email}">${formData.email}</a></p>
           </div>
+          <p style="font-size: 12px; color: #666; margin-top: 15px;">Tip: Just hit 'Reply' to email the customer back directly.</p>
         </div>
       `,
     });
 
     if (error) throw error;
+
     return { success: true };
   } catch (error: any) {
     console.error("Booking Error:", error);
-    return { success: false, error: error.message };
+    return { success: false, error: error.message || "Failed to process booking" };
   }
 }
