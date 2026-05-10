@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
-import { getFirestore } from "firebase/firestore";
+import { getFirestore, initializeFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -10,6 +10,10 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
 };
 
-// Prevent re-initializing the app during hot reloads or server executions
 const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
-export const db = getFirestore(app);
+
+// FIX: Force Long Polling so the connection closes immediately after data is sent.
+// This prevents the 10-second hang and the 502 error on Netlify.
+export const db = initializeFirestore(app, {
+  experimentalForceLongPolling: true,
+});
